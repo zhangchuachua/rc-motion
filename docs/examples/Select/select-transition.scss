@@ -1,0 +1,48 @@
+.select-fade {
+  &-enter, &-appear {
+    opacity: 0;
+    animation-timing-function: linear;
+    animation-duration: .2s;
+    animation-fill-mode: both;
+    animation-play-state: paused;
+  }
+
+  &-appear-active, &-enter-active {
+    animation-name: fade-in;
+    animation-play-state: running;
+  }
+
+  &-leave {
+    animation-timing-function: linear;
+    animation-duration: .2s;
+    animation-fill-mode: both;
+    animation-play-state: paused;
+  }
+
+  &-leave-active {
+    animation-name: fade-out;
+    animation-play-state: running;
+    pointer-events: none;
+  }
+
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
