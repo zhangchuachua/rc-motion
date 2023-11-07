@@ -66,7 +66,7 @@ export default function useStatus(
   const activeRef = useRef(false);
 
   /**
-   * Clean up status & style
+   * Clean up status & style // 重置 status style
    */
   function updateMotionEndStatus() {
     setStatus(STATUS_NONE, true);
@@ -74,6 +74,7 @@ export default function useStatus(
   }
 
   function onInternalMotionEnd(event: MotionEvent) {
+    console.log('on internal motion end');
     const element = getDomElement();
     if (event && !event.deadline && event.target !== element) {
       // event exists
@@ -95,10 +96,12 @@ export default function useStatus(
 
     // Only update status when `canEnd` and not destroyed
     if (status !== STATUS_NONE && currentActive && canEnd !== false) {
+      // *当 transitionend 和 animationend 触发时重置 status 和 style
       updateMotionEndStatus();
     }
   }
 
+  // 如果执行 patchMotionEvents 的话，相当于为 element 绑定 transitionend 与 animationend 事件，事件回调函数就是传入的 onInternalMotionEnd
   const [patchMotionEvents] = useDomMotionEvents(onInternalMotionEnd);
 
   // ============================= Step =============================
@@ -154,6 +157,7 @@ export default function useStatus(
 
     if (step === STEP_ACTIVE) {
       // Patch events when motion needed
+      // *active 时为元素添加 transitionend animationend 事件
       patchMotionEvents(getDomElement());
 
       if (motionDeadline > 0) {
@@ -166,6 +170,7 @@ export default function useStatus(
       }
     }
 
+    // 当 step 是 prepared(不是 prepare) 时说明当前是禁用 motion ，在禁用的情况下，只有 prepare 和 prepared 有效，所以下面直接重置 status 与 style
     if (step === STEP_PREPARED) {
       updateMotionEndStatus();
     }
@@ -173,15 +178,16 @@ export default function useStatus(
     return DoStep;
   });
 
-  const active = isActive(step);
+  const active = isActive(step);// active 与 end 都属于 active
   activeRef.current = active;
 
   // ============================ Status ============================
   // Update with new status
-  useIsomorphicLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {// 这个 effect 将在 visibile 发生改变时触发
     setAsyncVisible(visible);
 
     const isMounted = mountedRef.current;
+    console.log('ismounted', isMounted);
     mountedRef.current = true;
 
     // if (!supportMotion) {
@@ -212,10 +218,10 @@ export default function useStatus(
 
     // Update to next status
     if (nextStatus && (supportMotion || nextEventHandlers[STEP_PREPARE])) {
-      setStatus(nextStatus);
-      startStep();
+      setStatus(nextStatus);// 更新 status
+      startStep();// 每个 status 都将对应不同的 step 所以每次更新 status 也需要更新 step 重新从 prepare 开始
     } else {
-      // Set back in case no motion but prev status has prepare step
+      // Set back in case no motion but prev status has `prepare` step
       setStatus(STATUS_NONE);
     }
   }, [visible]);
@@ -237,6 +243,7 @@ export default function useStatus(
 
   useEffect(
     () => () => {
+      // 卸载
       mountedRef.current = false;
       clearTimeout(deadlineRef.current);
     },

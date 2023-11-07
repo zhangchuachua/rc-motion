@@ -40,7 +40,7 @@ class App extends React.Component<{}, DemoState> {
             <CSSMotion
               visible={show}
               motionName="no-trigger"
-              motionDeadline={1000}
+              // motionDeadline={1000}
               removeOnLeave
               onAppearStart={this.onStart}
               onEnterStart={this.onStart}

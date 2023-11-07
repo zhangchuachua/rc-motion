@@ -130,7 +130,31 @@ export function genCSSMotion(
    * 有四种状态：None, appear, enter, active
    * 有五种步骤：None, prepare, start, active, end
    *
-   * 将会根据 motionName 通过组合不同的状态和步骤，生成不同的 className 在不同的阶段添加不同的 className 最终创建出 动画
+   * 重点是这几个 hooks: useStatus, useStepQueue
+   *
+   * 大概的流程：
+   *
+   * visibile 将会传递给 useStatus，然后 visible 的切换将会引起 useStatus 中某个 effect 的执行；然后设置对应的 status；
+   *
+   * 初始的 status 肯定都是 None, status 是使用 useState 的
+   *
+   * 如果 element(指的是渲染的元素，也就是 children 的返回值) 没有挂载过，并且 visible 是 true 那么当前的状态就是 appear
+   * 如果 element 已经挂载过，并且 visible 是 true 那么当前的状态就是 enter
+   * 如果 element 已经挂载过，并且 visible 是 false 那么当前的状态是 leave
+   * 上述三种状态都将开始 step 可以理解为将 step 设置为 prepare
+   * 否则就是 None
+   *
+   * status 将会传递给 useStepQueue 于是每次 status 修改都会引起 useStepQueue 的重新执行
+   * useStepQueue 中也有一个 effect 当 step 为 none 或者为 end 时将不会进行任何操作；
+   * 但是上面修改 status 时将 step 也修改为了 prepare 于是当 status 为 appear enter leave 时 step 将会有值；
+   *
+   * step 将会依次变化为 appear start active end (其中有一些细节，比如 setStep 为 active end 时都是异步去设置的，但是具体为什么，不是太懂)
+   * 当 step 被设置为 active 时，将会为 element 添加 transitionend 和 animationend 事件，一般来说，事件被触发时，将会重置 status 为 None；至此一次 status 与 step 的循环变化结束；
+   *
+   * step 的修改不会直接影响修改 status 因为在 effect 的 dep 只是 visible
+   *
+   * CSSMotion 通过 useStatus 获取到 status 与 step 然后根据这些 status 和 step 构建出对应的 className 然后渲染到页面上；
+   * 例如: fade-enter fade-enter-prepare fade 至少会添加三个; motionName-status motionName-status-step motionName
    *
    * @param {object} props - The configuration props
    * @param {boolean} props.visible - Indicates whether the component is visible. Default: true.
@@ -140,6 +164,7 @@ export function genCSSMotion(
    * @param {string} props.motionName - The name of the motion transition. A CSS class will be dynamically applied to the children based on this name.
    * @param {string} props.leavedClassName - The CSS class name to apply to the children when they are leaving and removeOnLeave is false.
    * @param {object} props.eventProps - Additional event props to pass to the children during motion.
+   * @param {number} props.motionDeadline - rc-motion 是监听 transitionend animationend 来切换 className 的但是如果 className 没有 transition 或者没有 animation 那么就无法触发上述的两个事件，那么就可以使用 motionDeadline 来进行处理，rc-motion 会添加一个 setTimeout motionDeadline 作为 timeout 在倒计时完成后进行处理
    *
    * @returns {React.ReactElement} - A React element representing the component with motion effects applied.
    */
@@ -220,7 +245,7 @@ export function genCSSMotion(
           { ...mergedProps, className: leavedClassName },
           setNodeRef,
         );
-      } else if (forceRender || (!removeOnLeave && !leavedClassName)) {// 如果 强制渲染 为 true 或者 （leave 时删除 DOM 为 false 并且 leavedClassnName 没有值） 时触发
+      } else if (forceRender || (!removeOnLeave && !leavedClassName)) {// 如果 强制渲染 为 true 或者 （leave 时删除 DOM 为 false 并且 leavedClassName 没有值） 时触发
         motionChildren = children(
           { ...mergedProps, style: { display: 'none' } },
           setNodeRef,
